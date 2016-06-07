@@ -47,6 +47,8 @@ type Windows struct {
 	LayerPaths []string `json:"layer_paths,omitempty"`
 	// HvRuntime contains settings specific to Hyper-V containers, omitted if not using Hyper-V isolation
 	HvRuntime *HvRuntime `json:"hv_runtime,omitempty"`
+	// CredentialSpec contains the optional credential spec opaque blob
+	CredentialSpec string `json:"credential_spec,omitempty"`
 }
 
 // Process contains information to start a specific application inside the container.

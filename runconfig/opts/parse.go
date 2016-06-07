@@ -103,6 +103,7 @@ type ContainerOptions struct {
 	flHealthTimeout     *time.Duration
 	flHealthRetries     *int
 	flRuntime           *string
+	flCredentialSpec    *string
 
 	Image string
 	Args  []string
@@ -193,6 +194,7 @@ func AddFlags(flags *pflag.FlagSet) *ContainerOptions {
 		flHealthTimeout:     flags.Duration("health-timeout", 0, "Maximum time to allow one check to run"),
 		flHealthRetries:     flags.Int("health-retries", 0, "Consecutive failures needed to report unhealthy"),
 		flRuntime:           flags.String("runtime", "", "Runtime to use for this container"),
+		flCredentialSpec:    flags.String("credentialspec", "", "Credential spec for managed service account (Windows only)"),
 	}
 
 	flags.VarP(&copts.flAttach, "attach", "a", "Attach to STDIN, STDOUT or STDERR")
@@ -569,6 +571,7 @@ func Parse(flags *pflag.FlagSet, copts *ContainerOptions) (*container.Config, *c
 		Tmpfs:          tmpfs,
 		Sysctls:        copts.flSysctls.GetAll(),
 		Runtime:        *copts.flRuntime,
+		CredentialSpec: *copts.flCredentialSpec,
 	}
 
 	// When allocating stdin in attached mode, close stdin at client disconnect

@@ -47,6 +47,7 @@ func (clnt *client) Create(containerID string, spec Spec, options ...CreateOptio
 		IgnoreFlushesDuringBoot: spec.Windows.FirstStart,
 		LayerFolderPath:         spec.Windows.LayerFolder,
 		HostName:                spec.Hostname,
+		Credentials:             spec.Windows.CredentialSpec,
 	}
 
 	if spec.Windows.Networking != nil {

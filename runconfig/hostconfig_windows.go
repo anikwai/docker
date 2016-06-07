@@ -49,3 +49,10 @@ func ValidateIsolation(hc *container.HostConfig) error {
 func ValidateQoS(hc *container.HostConfig) error {
 	return nil
 }
+
+// ValidateCredentialSpec performs platform specific validation of
+// the credential spec in the hostconfig structure. Linux does not support
+// this Windows-only feature.
+func ValidateCredentialSpec(hc *container.HostConfig) error {
+	return nil
+}

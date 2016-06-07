@@ -104,3 +104,17 @@ func ValidateQoS(hc *container.HostConfig) error {
 	}
 	return nil
 }
+
+// ValidateCredentialSpec performs platform specific validation of
+// the credential spec in the hostconfig structure. Linux does not support
+// this Windows-only feature.
+func ValidateCredentialSpec(hc *container.HostConfig) error {
+	// We may not be passed a host config, such as in the case of docker commit
+	if hc == nil {
+		return nil
+	}
+	if len(hc.CredentialSpec) != 0 {
+		return fmt.Errorf("invalid credential spec setting: %s does not support --credentialspec", runtime.GOOS)
+	}
+	return nil
+}

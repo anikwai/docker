@@ -3,16 +3,26 @@ package daemon
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/libcontainerd/windowsoci"
 	"github.com/docker/docker/oci"
+	"golang.org/x/sys/windows/registry"
+)
+
+const (
+	windowsCredentialSpec          = "com.microsoft.credentialspec"
+	credentialSpecRegistryLocation = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization\Containers\CredentialSpecs`
+	credentialSpecFileLocation     = "CredentialSpecs"
 )
 
 func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, error) {
@@ -188,7 +198,70 @@ func (daemon *Daemon) createSpec(c *container.Container) (*libcontainerd.Spec, e
 			//TODO SandboxSize: ...,
 		},
 	}
+
+	// Add specific Windows credentials
+	if len(c.HostConfig.CredentialSpec) > 0 {
+		v := strings.ToLower(c.HostConfig.CredentialSpec)
+		f := strings.SplitAfter(v, "file://")
+		r := strings.SplitAfter(v, "registry://")
+		if len(f) == 2 {
+			f[1] = filepath.Clean(f[1])
+			if filepath.IsAbs(f[1]) {
+				return nil, fmt.Errorf("invalid credential spec - file:// path cannot be absolute")
+			}
+			base := filepath.Join(daemon.root, credentialSpecFileLocation)
+			full := filepath.Join(base, f[1])
+			if !strings.HasPrefix(full, base) {
+				return nil, fmt.Errorf("invalid credential spec - file:// path must be under %s", base)
+			}
+			s.Windows.CredentialSpec = readCredentialSpecFile(c.ID, full)
+		} else if len(r) == 2 {
+			s.Windows.CredentialSpec = readCredentialSpecRegistry(c.ID, r[1])
+		} else {
+			return nil, fmt.Errorf("invalid credential spec - must be prefixed file:// or registry://")
+		}
+	}
+
 	return (*libcontainerd.Spec)(&s), nil
+}
+
+// readCredentialSpecRegistry is a helper function to read a credential spec from
+// the registry. If not found, we return an empty string and warn in the log.
+// This allows for staging on machines which do not have the necessary components.
+func readCredentialSpecRegistry(id, name string) string {
+	var (
+		k   registry.Key
+		err error
+		val string
+	)
+	if k, err = registry.OpenKey(registry.LOCAL_MACHINE, credentialSpecRegistryLocation, registry.QUERY_VALUE); err != nil {
+		logrus.Warnf("%s could not be opened. Ignoring credential spec %q for container %s", credentialSpecRegistryLocation, name, id)
+		return ""
+	}
+	if val, _, err = k.GetStringValue(name); err != nil {
+		if err == registry.ErrNotExist {
+			logrus.Warnf("Ignoring credential spec %q for container %s as it was not found", name, id)
+			return ""
+		}
+	}
+	return val
+}
+
+// readCredentialSpecFile is a helper function to read a credential spec from
+// a file. If not found, we return an empty string and warn in the log.
+// This allows for staging on machines which do not have the necessary components.
+func readCredentialSpecFile(id, location string) string {
+	if _, err := os.Stat(location); os.IsNotExist(err) {
+		// Don't use %q as it will escape backslashes which is very difficult to read in the log
+		logrus.Warnf("Ignoring credential spec '%s' for container %s as it could not be found", location, id)
+		return ""
+	}
+	bcontents, err := ioutil.ReadFile(location)
+	if err != nil {
+		logrus.Warnf("Ignoring credential spec '%s' for container %s as the file could not be read", location, id)
+		return ""
+	}
+	return string(bcontents[:])
 }
 
 func escapeArgs(args []string) []string {
