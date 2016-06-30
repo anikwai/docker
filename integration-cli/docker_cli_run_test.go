@@ -4491,3 +4491,51 @@ func (s *DockerSuite) TestRunAddHostInHostMode(c *check.C) {
 	out, _ := dockerCmd(c, "run", "--add-host=extra:1.2.3.4", "--net=host", "busybox", "cat", "/etc/hosts")
 	c.Assert(out, checker.Contains, expectedOutput, check.Commentf("Expected '%s', but got %q", expectedOutput, out))
 }
+
+func (s *DockerSuite) TestRunWindowsDaemonWithCPUCount(c *check.C) {
+	testRequires(c, DaemonIsWindows)
+
+	out, _ := dockerCmd(c, "run", "--cpu-count=1", "--name", "test", "busybox", "echo", "testing")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "testing")
+
+	out = inspectField(c, "test", "HostConfig.CPUCount")
+	c.Assert(out, check.Equals, "1")
+}
+
+func (s *DockerSuite) TestRunWindowsDaemonWithCPUShares(c *check.C) {
+	testRequires(c, DaemonIsWindows)
+
+	out, _ := dockerCmd(c, "run", "--cpu-shares=1000", "--name", "test", "busybox", "echo", "testing")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "testing")
+
+	out = inspectField(c, "test", "HostConfig.CPUShares")
+	c.Assert(out, check.Equals, "1000")
+}
+
+func (s *DockerSuite) TestRunWindowsDaemonWithCPUPercent(c *check.C) {
+	testRequires(c, DaemonIsWindows)
+
+	out, _ := dockerCmd(c, "run", "--cpu-percent=80", "--name", "test", "busybox", "echo", "testing")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "testing")
+
+	out = inspectField(c, "test", "HostConfig.CPUPercent")
+	c.Assert(out, check.Equals, "80")
+}
+
+func (s *DockerSuite) TestRunWindowsDaemonWithCPUCountCPUSharesAndCPUPercent(c *check.C) {
+	testRequires(c, DaemonIsWindows)
+
+	out, _ := dockerCmd(c, "run", "--cpu-count=1", "--cpu-shares=1000", "--cpu-percent=80", "--name", "test", "busybox", "echo", "testing")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "WARNING: Conflicting options: CPU count takes priority over CPU shares. CPU shares discarded")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "WARNING: Conflicting options: CPU count takes priority over CPU percent. CPU percent discarded")
+	c.Assert(strings.TrimSpace(out), checker.Contains, "testing")
+
+	out = inspectField(c, "test", "HostConfig.CPUCount")
+	c.Assert(out, check.Equals, "1")
+
+	out = inspectField(c, "test", "HostConfig.CPUShares")
+	c.Assert(out, check.Equals, "0")
+
+	out = inspectField(c, "test", "HostConfig.CPUPercent")
+	c.Assert(out, check.Equals, "0")
+}

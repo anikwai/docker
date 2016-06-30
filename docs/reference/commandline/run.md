@@ -24,7 +24,16 @@ Options:
       --cap-drop value              Drop Linux capabilities (default [])
       --cgroup-parent string        Optional parent cgroup for the container
       --cidfile string              Write the container ID to the file
-      --cpu-percent int             CPU percent (Windows only)
+      --cpu-count int               Limit the number of CPUs available for
+                                    execution by the container. Windows daemon only.
+                                    The processor resource controls are mutually
+                                    exclusive, the order of precedence is CPUCount
+                                    first, then CPUShares, and CPUPercent last.
+      --cpu-percent int             Limit percentage of CPU available for execution
+                                    by the container. Windows daemon only.
+                                    The processor resource controls are mutually
+                                    exclusive, the order of precedence is CPUCount
+                                    first, then CPUShares, and CPUPercent last.
       --cpu-period int              Limit CPU CFS (Completely Fair Scheduler) period
       --cpu-quota int               Limit CPU CFS (Completely Fair Scheduler) quota
   -c, --cpu-shares int              CPU shares (relative weight)

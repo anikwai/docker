@@ -26,10 +26,13 @@ import (
 )
 
 const (
-	defaultNetworkSpace = "172.16.0.0/12"
-	platformSupported   = true
-	windowsMinCPUShares = 1
-	windowsMaxCPUShares = 10000
+	defaultNetworkSpace  = "172.16.0.0/12"
+	platformSupported    = true
+	windowsMinCPUShares  = 1
+	windowsMaxCPUShares  = 10000
+	windowsMinCPUPercent = 1
+	windowsMaxCPUPercent = 100
+	windowsMinCPUCount   = 1
 )
 
 func getBlkioWeightDevices(config *containertypes.HostConfig) ([]blkiodev.WeightDevice, error) {
@@ -75,6 +78,15 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 		return nil
 	}
 
+	numCPU := int64(sysinfo.NumCPU())
+	if hostConfig.CPUCount < 0 {
+		logrus.Warnf("Changing requested CPUCount of %d to minimum allowed of %d", hostConfig.CPUCount, windowsMinCPUCount)
+		hostConfig.CPUCount = windowsMinCPUCount
+	} else if hostConfig.CPUCount > numCPU {
+		logrus.Warnf("Changing requested CPUCount of %d to current number of processors, %d", hostConfig.CPUCount, numCPU)
+		hostConfig.CPUCount = numCPU
+	}
+
 	if hostConfig.CPUShares < 0 {
 		logrus.Warnf("Changing requested CPUShares of %d to minimum allowed of %d", hostConfig.CPUShares, windowsMinCPUShares)
 		hostConfig.CPUShares = windowsMinCPUShares
@@ -83,19 +95,39 @@ func (daemon *Daemon) adaptContainerSettings(hostConfig *containertypes.HostConf
 		hostConfig.CPUShares = windowsMaxCPUShares
 	}
 
+	if hostConfig.CPUPercent < 0 {
+		logrus.Warnf("Changing requested CPUPercent of %d to minimum allowed of %d", hostConfig.CPUPercent, windowsMinCPUPercent)
+		hostConfig.CPUPercent = windowsMinCPUPercent
+	} else if hostConfig.CPUPercent > windowsMaxCPUPercent {
+		logrus.Warnf("Changing requested CPUPercent of %d to maximum allowed of %d", hostConfig.CPUPercent, windowsMaxCPUPercent)
+		hostConfig.CPUPercent = windowsMaxCPUPercent
+	}
+
 	return nil
 }
 
 func verifyContainerResources(resources *containertypes.Resources, sysInfo *sysinfo.SysInfo) ([]string, error) {
 	warnings := []string{}
 
-	// cpu subsystem checks and adjustments
-	if resources.CPUPercent < 0 || resources.CPUPercent > 100 {
-		return warnings, fmt.Errorf("Range of CPU percent is from 1 to 100")
-	}
-
-	if resources.CPUPercent > 0 && resources.CPUShares > 0 {
-		return warnings, fmt.Errorf("Conflicting options: CPU Shares and CPU Percent cannot both be set")
+	// The processor resource controls are mutually exclusive, the order of
+	// precedence is CPUCount first, then CPUShares, and CPUPercent last.
+	if resources.CPUCount > 0 {
+		if resources.CPUShares > 0 {
+			warnings = append(warnings, "Conflicting options: CPU count takes priority over CPU shares. CPU shares discarded")
+			logrus.Warn("Conflicting options: CPU count takes priority over CPU shares. CPU shares discarded")
+			resources.CPUShares = 0
+		}
+		if resources.CPUPercent > 0 {
+			warnings = append(warnings, "Conflicting options: CPU count takes priority over CPU percent. CPU percent discarded")
+			logrus.Warn("Conflicting options: CPU count takes priority over CPU percent. CPU percent discarded")
+			resources.CPUPercent = 0
+		}
+	} else if resources.CPUShares > 0 {
+		if resources.CPUPercent > 0 {
+			warnings = append(warnings, "Conflicting options: CPU shares takes priority over CPU percent. CPU percent discarded")
+			logrus.Warn("Conflicting options: CPU shares takes priority over CPU percent. CPU percent discarded")
+			resources.CPUPercent = 0
+		}
 	}
 
 	// TODO Windows: Add more validation of resource settings not supported on Windows

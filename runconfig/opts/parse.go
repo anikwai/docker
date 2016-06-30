@@ -73,6 +73,7 @@ type ContainerOptions struct {
 	flKernelMemory      string
 	flUser              string
 	flWorkingDir        string
+	flCPUCount          int64
 	flCPUShares         int64
 	flCPUPercent        int64
 	flCPUPeriod         int64
@@ -215,6 +216,7 @@ func AddFlags(flags *pflag.FlagSet) *ContainerOptions {
 	flags.StringVar(&copts.flContainerIDFile, "cidfile", "", "Write the container ID to the file")
 	flags.StringVar(&copts.flCpusetCpus, "cpuset-cpus", "", "CPUs in which to allow execution (0-3, 0,1)")
 	flags.StringVar(&copts.flCpusetMems, "cpuset-mems", "", "MEMs in which to allow execution (0-3, 0,1)")
+	flags.Int64Var(&copts.flCPUCount, "cpu-count", 0, "CPU count (Windows only)")
 	flags.Int64Var(&copts.flCPUPercent, "cpu-percent", 0, "CPU percent (Windows only)")
 	flags.Int64Var(&copts.flCPUPeriod, "cpu-period", 0, "Limit CPU CFS (Completely Fair Scheduler) period")
 	flags.Int64Var(&copts.flCPUQuota, "cpu-quota", 0, "Limit CPU CFS (Completely Fair Scheduler) quota")
@@ -500,6 +502,7 @@ func Parse(flags *pflag.FlagSet, copts *ContainerOptions) (*container.Config, *c
 		MemorySwappiness:     &copts.flSwappiness,
 		KernelMemory:         KernelMemory,
 		OomKillDisable:       &copts.flOomKillDisable,
+		CPUCount:             copts.flCPUCount,
 		CPUPercent:           copts.flCPUPercent,
 		CPUShares:            copts.flCPUShares,
 		CPUPeriod:            copts.flCPUPeriod,
