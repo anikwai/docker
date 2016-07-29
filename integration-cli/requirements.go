@@ -27,7 +27,13 @@ var (
 		"Test requires a Windows daemon",
 	}
 	DaemonIsLinux = testRequirement{
-		func() bool { return daemonPlatform == "linux" },
+		func() bool {
+			if daemonPlatform == "linux" {
+				fmt.Println("Enabling linux test to see")
+				return true
+			}
+			return true
+		}, //return daemonPlatform == "linux" },
 		"Test requires a Linux daemon",
 	}
 	ExperimentalDaemon = testRequirement{
