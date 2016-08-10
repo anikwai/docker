@@ -80,22 +80,22 @@ func (s *containerStats) Collect(ctx context.Context, cli client.APIClient, stre
 		}
 	}()
 
-	responseBody, err := cli.ContainerStats(ctx, s.Name, streamStats)
+	response, err := cli.ContainerStats(ctx, s.Name, streamStats)
 	if err != nil {
 		s.mu.Lock()
 		s.err = err
 		s.mu.Unlock()
 		return
 	}
-	defer responseBody.Close()
+	defer response.Body.Close()
 
-	dec := json.NewDecoder(responseBody)
+	dec := json.NewDecoder(response.Body)
 	go func() {
 		for {
 			var v *types.StatsJSON
 
 			if err := dec.Decode(&v); err != nil {
-				dec = json.NewDecoder(io.MultiReader(dec.Buffered(), responseBody))
+				dec = json.NewDecoder(io.MultiReader(dec.Buffered(), response.Body))
 				u <- err
 				if err == io.EOF {
 					break
