@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digest"
+	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/ioutils"
 )
 
@@ -81,6 +82,10 @@ func (s *fs) Walk(f IDWalkFunc) error {
 			continue
 		}
 		if err := f(ID(dgst)); err != nil {
+			if err == layer.ErrLayerDoesNotExist {
+				logrus.Debugf("Skipping missing layer %s: %s", dgst, err)
+				continue
+			}
 			return err
 		}
 	}
